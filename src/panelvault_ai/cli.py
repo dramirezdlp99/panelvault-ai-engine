@@ -3,6 +3,7 @@
 Uso:
     panelvault-ai analyze RUTA [RUTA ...] [--preset manga] [--out CARPETA] [--debug]
     panelvault-ai demo [--out CARPETA]
+    panelvault-ai evaluate [--seeds N] [--annotations CARPETA]
 """
 
 from __future__ import annotations
@@ -18,6 +19,13 @@ import numpy as np
 from panelvault_ai import __version__
 from panelvault_ai.analyzer import PRESETS, PanelAnalyzer
 from panelvault_ai.domain import PanelMap
+from panelvault_ai.evaluation import (
+    annotated_cases,
+    format_report,
+    run_benchmark,
+    summarize,
+    synthetic_cases,
+)
 from panelvault_ai.imageio import read_image, write_image
 from panelvault_ai.pipeline import FileDebugSink, PanelVaultError
 from panelvault_ai.stages import PANEL_MAP
@@ -45,11 +53,23 @@ def build_parser() -> argparse.ArgumentParser:
     demo = sub.add_parser("demo", help="Genera una página sintética y la analiza.")
     demo.add_argument("--out", type=Path, default=DEFAULT_OUT, help="Carpeta de salida.")
     demo.add_argument("--seed", type=int, default=7)
+
+    evaluate = sub.add_parser("evaluate", help="Mide precisión, recall y orden de lectura.")
+    evaluate.add_argument(
+        "--seeds", type=int, default=10, help="Variantes sintéticas por categoría."
+    )
+    evaluate.add_argument(
+        "--annotations", type=Path, help="Carpeta con páginas reales anotadas (imagen + .json)."
+    )
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+
+    if args.command == "evaluate":
+        return _evaluate(args.seeds, args.annotations)
+
     args.out.mkdir(parents=True, exist_ok=True)
 
     if args.command == "demo":
@@ -62,6 +82,22 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _analyze_all([source], "western", args.out, debug=False)
 
     return _analyze_all(args.images, args.preset, args.out, args.debug)
+
+
+def _evaluate(seeds: int, annotations: Path | None) -> int:
+    cases = list(synthetic_cases(seeds))
+    if annotations is not None:
+        cases.extend(annotated_cases(annotations))
+    print(f"Evaluando {len(cases)} páginas...\n")
+    results = run_benchmark(cases)
+    print(format_report(summarize(results)))
+    failed = [r for r in results if not r.score.is_perfect]
+    if failed:
+        print(f"\nPáginas no perfectas: {len(failed)}")
+        for r in failed:
+            s = r.score
+            print(f"  {r.case_name:<16} detectadas={s.predicted_count} reales={s.truth_count}")
+    return 0
 
 
 def _analyze_all(paths: Sequence[Path], preset: str, out: Path, debug: bool) -> int:
