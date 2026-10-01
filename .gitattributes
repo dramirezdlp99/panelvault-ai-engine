@@ -1,0 +1,15 @@
+# Todo archivo de texto se guarda en el repo con finales LF (Linux)
+* text=auto eol=lf
+
+# Excepcion: los scripts de Windows necesitan CRLF para ejecutarse
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Archivos binarios: Git nunca debe intentar modificarlos
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.zip binary
+*.cbz binary
+*.joblib binary
