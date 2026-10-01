@@ -54,6 +54,16 @@ def test_columna_alta_con_viñetas_apiladas():
     _verificar_orden(PanelAnalyzer("manga").analyze(pagina.image), [arriba, abajo, alta])
 
 
+@pytest.mark.parametrize("medianil", [6, 7])
+@pytest.mark.parametrize("seed", range(3))
+def test_separa_viñetas_con_medianiles_demasiado_delgados_para_el_xy_cut(medianil, seed):
+    # Con medianiles de 6-7 px, el espacio blanco visible entre marcos es de 2-3 px:
+    # menos que el min_gap del XY-Cut. Lo resuelve la etapa de refinamiento.
+    layout = row_layout(800, 1200, [2, 3, 1, 2], seed=seed, gutter=medianil)
+    pagina = render_page(800, 1200, layout, PageStyle(noise_sigma=4), seed)
+    _verificar_orden(PanelAnalyzer("western").analyze(pagina.image), list(pagina.panels))
+
+
 def test_las_coordenadas_se_reportan_en_la_imagen_de_trabajo_y_normalizadas():
     # Página grande (2400 px): se reduce a 1200, pero lo normalizado no depende del tamaño.
     layout = grid_layout(2400, 3600, rows=2, cols=2, gutter=60, margin=120)
@@ -97,4 +107,4 @@ def test_el_contexto_expone_los_tiempos_de_cada_etapa():
         render_page(800, 1200, grid_layout(800, 1200, 2, 2)).image
     )
     nombres = [t.stage_name for t in ctx.timings]
-    assert nombres == ["normalize", "gutter", "binarize", "xycut", "order", "assemble"]
+    assert nombres == ["normalize", "gutter", "binarize", "xycut", "refine", "order", "assemble"]
