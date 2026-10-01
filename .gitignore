@@ -1,0 +1,35 @@
+# --- Python: bytecode compilado (se regenera solo) ---
+__pycache__/
+*.py[cod]
+
+# --- Entorno virtual (cada máquina crea el suyo) ---
+.venv/
+venv/
+
+# --- Secretos y configuración local ---
+.env
+.env.*
+!.env.example
+
+# --- Herramientas de pruebas y calidad ---
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# --- Empaquetado ---
+build/
+dist/
+*.egg-info/
+
+# --- Salidas de depuración del pipeline de visión ---
+debug_output/
+*.log
+
+# --- Editores y sistema operativo ---
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+.DS_Store
