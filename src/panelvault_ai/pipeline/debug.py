@@ -42,10 +42,8 @@ class FileDebugSink(DebugSink):
         self._counter = 0
 
     def emit(self, stage_name: str, label: str, image: np.ndarray) -> None:
-        import cv2  # import diferido: solo se necesita OpenCV si se escriben archivos
+        from panelvault_ai.imageio import write_image  # import diferido: evita ciclos
 
         self._counter += 1
         safe = re.sub(r"[^a-zA-Z0-9_-]+", "_", f"{stage_name}_{label}")
-        path = self.directory / f"{self._counter:02d}_{safe}.png"
-        if not cv2.imwrite(str(path), image):
-            raise OSError(f"No se pudo escribir la imagen de depuración {path}")
+        write_image(self.directory / f"{self._counter:02d}_{safe}.png", image)
