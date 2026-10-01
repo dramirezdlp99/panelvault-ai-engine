@@ -4,13 +4,17 @@ Uso:
     panelvault-ai analyze RUTA [RUTA ...] [--preset manga] [--out CARPETA] [--debug]
     panelvault-ai demo [--out CARPETA]
     panelvault-ai evaluate [--seeds N] [--annotations CARPETA]
+    panelvault-ai request RUTA [--url URL] [--preset manga]
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
+import urllib.error
+import urllib.request
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -18,6 +22,7 @@ import numpy as np
 
 from panelvault_ai import __version__
 from panelvault_ai.analyzer import PRESETS, PanelAnalyzer
+from panelvault_ai.api.security import signed_headers
 from panelvault_ai.domain import PanelMap
 from panelvault_ai.evaluation import (
     annotated_cases,
@@ -61,6 +66,13 @@ def build_parser() -> argparse.ArgumentParser:
     evaluate.add_argument(
         "--annotations", type=Path, help="Carpeta con páginas reales anotadas (imagen + .json)."
     )
+
+    request = sub.add_parser(
+        "request", help="Envía una imagen firmada a la API del motor, como lo hará el backend."
+    )
+    request.add_argument("image", type=Path, help="Ruta de la imagen.")
+    request.add_argument("--url", default="http://127.0.0.1:8001", help="URL base de la API.")
+    request.add_argument("--preset", choices=sorted(PRESETS), default="western")
     return parser
 
 
@@ -69,6 +81,8 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "evaluate":
         return _evaluate(args.seeds, args.annotations)
+    if args.command == "request":
+        return _request(args.image, args.url, args.preset)
 
     args.out.mkdir(parents=True, exist_ok=True)
 
@@ -97,6 +111,33 @@ def _evaluate(seeds: int, annotations: Path | None) -> int:
         for r in failed:
             s = r.score
             print(f"  {r.case_name:<16} detectadas={s.predicted_count} reales={s.truth_count}")
+    return 0
+
+
+def _request(image: Path, base_url: str, preset: str) -> int:
+    """Firma y envía una imagen a la API, exactamente como lo hará el backend."""
+    secret = os.environ.get("PANELVAULT_ENGINE_SECRET", "")
+    if not secret:
+        print("ERROR: define PANELVAULT_ENGINE_SECRET con el mismo valor del servidor.")
+        return 1
+    body = image.read_bytes()
+    path = "/v1/analyze"
+    headers = signed_headers(secret, "POST", path, body)
+    headers["Content-Type"] = "application/octet-stream"
+    url = f"{base_url.rstrip('/')}{path}?preset={preset}"
+    req = urllib.request.Request(url, data=body, headers=headers, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=60) as response:
+            data = json.loads(response.read())
+    except urllib.error.HTTPError as exc:
+        print(f"ERROR {exc.code}: {exc.read().decode(errors='replace')}")
+        return 1
+    except urllib.error.URLError as exc:
+        print(f"ERROR: no se pudo conectar con {base_url} ({exc.reason}). ¿Está corriendo?")
+        return 1
+    panels = data["panelMap"]["panels"]
+    print(f"{image.name}: {len(panels)} viñetas en {data['elapsedMs']} ms")
+    print(json.dumps(data["panelMap"], indent=2, ensure_ascii=False))
     return 0
 
 
