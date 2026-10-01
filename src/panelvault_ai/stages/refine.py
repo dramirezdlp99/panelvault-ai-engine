@@ -39,7 +39,9 @@ class ThinGutterRefineStage(Stage):
     2. **Flanqueada por tinta a ambos lados**: justo antes y justo después hay
        líneas casi continuas muy oscuras (``min_ink``), que son los marcos de las
        dos viñetas. Una zona clara del dibujo casi nunca está encerrada entre dos
-       líneas negras que la recorren completa.
+       líneas negras que la recorren completa. La "tinta" es **relativa al color
+       del papel** (``ink_contrast``): en papel amarillento de gris 160, un marco
+       de gris 60 es tinta aunque esté lejos del negro absoluto.
     3. Lejos de los bordes de la hoja (``min_part``): cada pedazo resultante debe
        conservar una fracción razonable de la hoja.
 
@@ -58,9 +60,9 @@ class ThinGutterRefineStage(Stage):
 
     def __init__(
         self,
-        min_light: float = 0.9,
-        min_ink: float = 0.6,
-        ink_distance: int = 140,
+        min_light: float = 0.85,
+        min_ink: float = 0.5,
+        ink_contrast: float = 0.5,
         flank: int = 4,
         min_part: float = 0.15,
         min_size: int = 40,
@@ -68,11 +70,13 @@ class ThinGutterRefineStage(Stage):
     ) -> None:
         if not 0 < min_light <= 1 or not 0 < min_ink <= 1:
             raise ValueError("min_light y min_ink deben estar entre 0 y 1")
+        if not 0 < ink_contrast < 1:
+            raise ValueError("ink_contrast debe estar entre 0 y 1")
         if not 0 < min_part < 0.5:
             raise ValueError("min_part debe estar entre 0 y 0.5")
         self.min_light = min_light
         self.min_ink = min_ink
-        self.ink_distance = ink_distance
+        self.ink_contrast = ink_contrast
         self.flank = flank
         self.min_part = min_part
         self.min_size = min_size
@@ -119,7 +123,10 @@ class ThinGutterRefineStage(Stage):
         """Mejor medianil delgado dentro de un recorte, o None si no hay ninguno creíble."""
         distance = np.abs(crop.astype(np.int16) - gutter.value)
         light = distance <= gutter.tolerance
-        ink = distance >= self.ink_distance
+        # Contraste máximo posible desde el color del papel: hacia el negro si el
+        # papel es claro, hacia el blanco si es oscuro.
+        contrast_range = max(gutter.value, 255 - gutter.value)
+        ink = distance >= self.ink_contrast * contrast_range
 
         # Primero filas (perfil por fila, axis=1); solo si no hay, columnas (axis=0).
         for axis, profile_axis in ((CutAxis.HORIZONTAL, 1), (CutAxis.VERTICAL, 0)):
