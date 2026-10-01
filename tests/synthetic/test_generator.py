@@ -4,7 +4,13 @@ import numpy as np
 import pytest
 
 from panelvault_ai.domain import Rect
-from panelvault_ai.synthetic import PageStyle, grid_layout, render_page, row_layout
+from panelvault_ai.synthetic import (
+    PageStyle,
+    grid_layout,
+    pinwheel_layout,
+    render_page,
+    row_layout,
+)
 
 
 def test_grid_layout_produce_filas_por_columnas_en_orden_de_lectura():
@@ -62,3 +68,16 @@ def test_el_dibujo_nunca_invade_el_medianil():
         # Se deja 1 píxel extra por el grosor del marco.
         dentro[int(r.y) - 1 : int(r.bottom) + 1, int(r.x) - 1 : int(r.right) + 1] = True
     assert np.all(imagen[~dentro] == 255)
+
+
+def test_molinete_no_tiene_ningun_medianil_que_cruce_la_pagina():
+    rects = pinwheel_layout(800, 1200)
+    assert len(rects) == 5
+    for i, a in enumerate(rects):
+        for b in rects[i + 1 :]:
+            assert a.intersection(b) is None
+    # Toda línea vertical u horizontal interior atraviesa al menos una viñeta.
+    for x in range(60, 740, 5):
+        assert any(r.x <= x < r.right for r in rects)
+    for y in range(60, 1140, 5):
+        assert any(r.y <= y < r.bottom for r in rects)

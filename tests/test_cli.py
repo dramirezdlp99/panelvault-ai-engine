@@ -41,3 +41,10 @@ def test_un_archivo_invalido_no_detiene_a_los_demas(tmp_path, capsys):
     assert codigo == 1
     assert "ERROR" in salida.err
     assert "Viñetas: 8" in salida.out
+
+
+def test_evaluate_imprime_el_reporte(capsys):
+    assert main(["evaluate", "--seeds", "1"]) == 0
+    salida = capsys.readouterr().out
+    assert "TOTAL" in salida
+    assert "límite: molinete" in salida
