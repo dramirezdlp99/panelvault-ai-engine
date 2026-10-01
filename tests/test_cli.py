@@ -48,3 +48,18 @@ def test_evaluate_imprime_el_reporte(capsys):
     salida = capsys.readouterr().out
     assert "TOTAL" in salida
     assert "límite: molinete" in salida
+
+
+def test_request_sin_secreto_avisa_y_falla(tmp_path, monkeypatch, capsys):
+    monkeypatch.delenv("PANELVAULT_ENGINE_SECRET", raising=False)
+    main(["demo", "--out", str(tmp_path)])
+    assert main(["request", str(tmp_path / "demo_pagina.png")]) == 1
+    assert "PANELVAULT_ENGINE_SECRET" in capsys.readouterr().out
+
+
+def test_request_sin_servidor_explica_el_error(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("PANELVAULT_ENGINE_SECRET", "s" * 40)
+    main(["demo", "--out", str(tmp_path)])
+    codigo = main(["request", str(tmp_path / "demo_pagina.png"), "--url", "http://127.0.0.1:9"])
+    assert codigo == 1
+    assert "no se pudo conectar" in capsys.readouterr().out
