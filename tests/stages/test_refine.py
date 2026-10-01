@@ -23,12 +23,12 @@ from panelvault_ai.stages import (
 MEDIANIL_BLANCO = GutterEstimate(value=255, tolerance=12, confidence=1.0)
 
 
-def _refinar(gray: np.ndarray) -> CutNode:
+def _refinar(gray: np.ndarray, medianil: GutterEstimate = MEDIANIL_BLANCO) -> CutNode:
     """Ejecuta la etapa sobre una sola hoja que cubre toda la imagen."""
     alto, ancho = gray.shape
     ctx = PageContext()
     ctx.set(WORKING_IMAGE, gray)
-    ctx.set(GUTTER, MEDIANIL_BLANCO)
+    ctx.set(GUTTER, medianil)
     ctx.set(CUT_TREE, CutNode(Rect(0, 0, ancho, alto)))
     ThinGutterRefineStage().run(ctx)
     return ctx.get(CUT_TREE)
@@ -50,6 +50,19 @@ def test_divide_dos_viñetas_separadas_por_un_medianil_de_dos_pixeles():
     assert abs(izquierda.right - 299) <= 2
 
 
+def test_la_tinta_es_relativa_al_color_del_papel():
+    # Papel amarillento (gris 160) con marcos de gris 60: lejos del negro absoluto,
+    # pero claramente tinta respecto al papel. Caso real de un escaneo antiguo.
+    papel = 160
+    img = np.full((400, 600), papel, dtype=np.uint8)
+    for x1, x2 in ((0, 290), (302, 599)):
+        cv2.rectangle(img, (x1, 0), (x2, 399), 205, thickness=-1)
+        cv2.rectangle(img, (x1, 0), (x2, 399), 60, thickness=3)
+    arbol = _refinar(img, GutterEstimate(value=papel, tolerance=16, confidence=1.0))
+    assert arbol.axis is CutAxis.VERTICAL
+    assert len(list(arbol.leaves())) == 2
+
+
 def test_prefiere_filas_para_conservar_el_orden_de_lectura():
     img = np.full((600, 600), 255, dtype=np.uint8)
     for x1, x2 in ((0, 296), (302, 599)):
@@ -64,14 +77,14 @@ def test_prefiere_filas_para_conservar_el_orden_de_lectura():
 def test_no_divide_por_una_franja_clara_del_dibujo_sin_marcos():
     # Una franja blanca que atraviesa el dibujo, pero rodeada de tonos medios (no de tinta).
     img = np.full((400, 600), 255, dtype=np.uint8)
-    _viñeta(img, 0, 0, 599, 399, relleno=128)
+    _viñeta(img, 0, 0, 599, 399, relleno=150)
     img[3:-3, 298:302] = 255
     assert _refinar(img).is_leaf
 
 
 def test_no_divide_si_hay_tinta_solo_a_un_lado():
     img = np.full((400, 600), 255, dtype=np.uint8)
-    _viñeta(img, 0, 0, 599, 399, relleno=128)
+    _viñeta(img, 0, 0, 599, 399, relleno=150)
     img[3:-3, 298:302] = 255
     img[3:-3, 295:298] = 0  # línea negra solo a la izquierda de la franja
     assert _refinar(img).is_leaf
@@ -96,3 +109,5 @@ def test_rechaza_parametros_invalidos():
         ThinGutterRefineStage(min_part=0.6)
     with pytest.raises(ValueError):
         ThinGutterRefineStage(min_light=0)
+    with pytest.raises(ValueError):
+        ThinGutterRefineStage(ink_contrast=1.5)

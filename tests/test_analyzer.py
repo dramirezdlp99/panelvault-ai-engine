@@ -1,4 +1,6 @@
-"""Pruebas de extremo a extremo: imagen de entrada → PanelMap, sobre páginas sintéticas."""
+"""Pruebas de extremo a extremo: imagen de entrada → PanelMap, sobre páginas sintéticas y reales."""
+
+from pathlib import Path
 
 import cv2
 import numpy as np
@@ -6,9 +8,11 @@ import pytest
 
 from panelvault_ai.analyzer import PanelAnalyzer
 from panelvault_ai.domain import PageType, Rect
+from panelvault_ai.imageio import read_image
 from panelvault_ai.synthetic import PageStyle, grid_layout, render_page, row_layout
 
 UMBRAL_IOU = 0.9
+FIXTURES = Path(__file__).parent / "fixtures"
 
 
 def _verificar_orden(mapa, esperadas: list[Rect]):
@@ -62,6 +66,42 @@ def test_separa_viñetas_con_medianiles_demasiado_delgados_para_el_xy_cut(median
     layout = row_layout(800, 1200, [2, 3, 1, 2], seed=seed, gutter=medianil)
     pagina = render_page(800, 1200, layout, PageStyle(noise_sigma=4), seed)
     _verificar_orden(PanelAnalyzer("western").analyze(pagina.image), list(pagina.panels))
+
+
+def test_papel_amarillento_con_un_trazo_que_cruza_el_medianil():
+    # Reproduce el fallo encontrado en una página real: papel de gris 160 y la cola de
+    # un globo que cruza el medianil entre dos viñetas. Ese trazo deja un pedazo de
+    # medianil encerrado, la binarización lo marca como contenido y el XY-Cut no corta.
+    # La etapa de refinamiento debe separarlas.
+    imagen = np.full((900, 700), 160, dtype=np.uint8)
+    viñetas = [Rect(30, 30, 301, 391), Rect(342, 30, 329, 391), Rect(30, 440, 641, 431)]
+    for r in viñetas:
+        esquinas = ((int(r.x), int(r.y)), (int(r.right) - 1, int(r.bottom) - 1))
+        cv2.rectangle(imagen, *esquinas, 205, thickness=-1)
+        cv2.rectangle(imagen, *esquinas, 60, thickness=3)
+    cv2.line(imagen, (300, 80), (370, 80), 40, thickness=3)
+    ruido = np.random.default_rng(0).normal(0, 5, imagen.shape)
+    imagen = np.clip(imagen + ruido, 0, 255).astype(np.uint8)
+    _verificar_orden(PanelAnalyzer().analyze(imagen), viñetas)
+
+
+def test_pagina_real_de_dominio_publico():
+    # Página de un cómic de dominio público (Wikimedia Commons). Respuesta verificada a
+    # mano: 7 viñetas, la 1 y la 2 separadas por un medianil parcialmente cruzado.
+    mapa = PanelAnalyzer().analyze(read_image(FIXTURES / "real1.jpg"))
+    esperadas = [
+        (0.028, 0.017, 0.306, 0.314),
+        (0.347, 0.017, 0.268, 0.314),
+        (0.627, 0.019, 0.348, 0.313),
+        (0.027, 0.372, 0.472, 0.287),
+        (0.512, 0.343, 0.462, 0.316),
+        (0.011, 0.670, 0.516, 0.318),
+        (0.538, 0.670, 0.435, 0.318),
+    ]
+    obtenidas = [p["bbox"] for p in mapa.to_normalized_dict()["panels"]]
+    assert len(obtenidas) == len(esperadas)
+    for obtenida, esperada in zip(obtenidas, esperadas, strict=True):
+        assert obtenida == pytest.approx(list(esperada), abs=0.02)
 
 
 def test_las_coordenadas_se_reportan_en_la_imagen_de_trabajo_y_normalizadas():
