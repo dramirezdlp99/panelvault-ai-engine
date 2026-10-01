@@ -88,6 +88,35 @@ def row_layout(
     return rects
 
 
+def pinwheel_layout(width: int, height: int, gutter: int = 20, margin: int = 40) -> list[Rect]:
+    """Composición en "molinete": cuatro viñetas giran alrededor de una central.
+
+    Ningún medianil cruza la página de lado a lado, así que un algoritmo de cortes
+    rectos como el XY-Cut no puede separarla. Se usa como **límite conocido**.
+    Orden devuelto: por fila de su esquina superior izquierda, de izquierda a derecha.
+    """
+    uw = (width - 2 * margin - 2 * gutter) / 3
+    uh = (height - 2 * margin - 2 * gutter) / 3
+
+    def cell(col: float, row: float, cols: float, rows: float) -> Rect:
+        x = margin + col * (uw + gutter)
+        y = margin + row * (uh + gutter)
+        return Rect(
+            round(x),
+            round(y),
+            round(cols * uw + (cols - 1) * gutter),
+            round(rows * uh + (rows - 1) * gutter),
+        )
+
+    return [
+        cell(0, 0, 2, 1),  # arriba, ancha
+        cell(2, 0, 1, 2),  # derecha, alta
+        cell(0, 1, 1, 2),  # izquierda, alta
+        cell(1, 1, 1, 1),  # centro
+        cell(1, 2, 2, 1),  # abajo, ancha
+    ]
+
+
 def render_page(
     width: int,
     height: int,
