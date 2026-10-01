@@ -6,7 +6,9 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from panelvault_ai.domain import PanelMap, Rect
 from panelvault_ai.pipeline import ArtifactKey
+from panelvault_ai.stages.cut_tree import CutNode
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,3 +42,10 @@ GUTTER: ArtifactKey[GutterEstimate] = ArtifactKey("gutter", "Color estimado del 
 CONTENT_MASK: ArtifactKey[np.ndarray] = ArtifactKey(
     "content_mask", "Máscara binaria: 255 = contenido de viñeta, 0 = medianil"
 )
+CUT_TREE: ArtifactKey[CutNode | None] = ArtifactKey(
+    "cut_tree", "Árbol del XY-Cut sobre la máscara; None si la página no tiene contenido"
+)
+ORDERED_RECTS: ArtifactKey[tuple[Rect, ...]] = ArtifactKey(
+    "ordered_rects", "Viñetas candidatas en orden de lectura, en coordenadas de trabajo"
+)
+PANEL_MAP: ArtifactKey[PanelMap] = ArtifactKey("panel_map", "Resultado final de la página")
