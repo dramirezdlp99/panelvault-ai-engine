@@ -21,6 +21,7 @@ from panelvault_ai.stages.keys import (
 )
 from panelvault_ai.stages.normalize import NormalizeStage
 from panelvault_ai.stages.ordering import ReadingOrderStage, reading_order
+from panelvault_ai.stages.refine import SplitCandidate, ThinGutterRefineStage
 from panelvault_ai.stages.xycut import XYCutStage, find_gaps, split_by_gaps
 
 __all__ = [
@@ -40,6 +41,8 @@ __all__ = [
     "GutterEstimationStage",
     "NormalizeStage",
     "ReadingOrderStage",
+    "SplitCandidate",
+    "ThinGutterRefineStage",
     "XYCutStage",
     "find_gaps",
     "reading_order",

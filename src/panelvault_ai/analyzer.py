@@ -21,6 +21,7 @@ _BASE: list[dict[str, Any]] = [
     {"stage": "gutter"},
     {"stage": "binarize"},
     {"stage": "xycut"},
+    {"stage": "refine"},
 ]
 
 PRESETS: dict[str, list[dict[str, Any]]] = {
