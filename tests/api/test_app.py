@@ -82,3 +82,15 @@ def test_imagen_con_demasiados_pixeles_responde_422():
     pequeno = EngineSettings(secret=SECRETO, max_pixels=100_000)
     respuesta = _post(TestClient(create_app(pequeno)), _jpeg())  # 800x1200 = 960 000 px
     assert respuesta.status_code == 422
+
+
+def test_sin_documentacion_publica_por_defecto(cliente):
+    for ruta in ("/docs", "/redoc", "/openapi.json"):
+        assert cliente.get(ruta).status_code == 404
+
+
+def test_la_documentacion_se_puede_encender_para_desarrollo():
+    ajustes = EngineSettings(secret=SECRETO, docs_enabled=True)
+    cliente_con_docs = TestClient(create_app(ajustes))
+    assert cliente_con_docs.get("/docs").status_code == 200
+    assert cliente_con_docs.get("/openapi.json").json()["info"]["title"] == "PanelVault AI Engine"
