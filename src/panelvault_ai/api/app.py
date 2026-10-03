@@ -4,6 +4,8 @@ Solo la consume el backend; nunca el navegador. Ejecutar en local con::
 
     uvicorn panelvault_ai.api.app:create_app --factory --port 8001
 
+Para ver la documentación interactiva en local, define antes ``PANELVAULT_ENABLE_DOCS=true``.
+
 ``--factory`` hace que uvicorn llame a ``create_app()`` al arrancar: la
 configuración se lee entonces del entorno y no al importar el módulo.
 
@@ -38,10 +40,15 @@ def create_app(settings: EngineSettings | None = None) -> FastAPI:
     settings = settings or EngineSettings.from_env()
     analyzers = {name: PanelAnalyzer(name) for name in PRESETS}
 
+    # Sin documentación pública salvo que se pida: en producción solo el backend usa esta API.
+    docs_enabled = settings.docs_enabled
     app = FastAPI(
         title="PanelVault AI Engine",
         version=__version__,
         description="Segmentación de viñetas y orden de lectura. Uso interno del backend.",
+        docs_url="/docs" if docs_enabled else None,
+        redoc_url="/redoc" if docs_enabled else None,
+        openapi_url="/openapi.json" if docs_enabled else None,
     )
 
     async def signed_body(request: Request) -> bytes:
